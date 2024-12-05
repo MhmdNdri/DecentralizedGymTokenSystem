@@ -15,20 +15,23 @@ contract GymToken is ERC20, Pausable, AccessControl {
     bytes32 public constant TRAINER_ROLE = keccak256("TRAINER_ROLE");
 
     // Constant reward amount for referrals (e.g., 10 tokens for every referral)
-    uint256 public constant REFERRAL_REWARD = 10 * (10**decimal);
+    uint256 public constant REFERRAL_REWARD = 10 * (10 ** decimal);
 
-
-    enum MEMBERSHIP_TYPE{
+    enum MEMBERSHIP_TYPE {
         Monthly,
         Quarterly,
         Annual
     }
 
     mapping(MEMBERSHIP_TYPE => uint256) public membershipPrices; // Membership prices by type
-    mapping(address => uint256) public membershipExpiry;        // Track expiry timestamps for members
+    mapping(address => uint256) public membershipExpiry; // Track expiry timestamps for members
     mapping(address => uint256) public referralBonuses;
 
-    event MembershipPurchased(address indexed member, MEMBERSHIP_TYPE membershipType, uint256 duration);
+    event MembershipPurchased(
+        address indexed member,
+        MEMBERSHIP_TYPE membershipType,
+        uint256 duration
+    );
     event ReferralRewarded(address indexed referrer, uint256 amount);
     event StaffPaid(address indexed staff, uint256 amount);
 
@@ -36,15 +39,14 @@ contract GymToken is ERC20, Pausable, AccessControl {
         // Assign the manager both admin and manager roles
         _grantRole(DEFAULT_ADMIN_ROLE, manager);
         _grantRole(MANAGER_ROLE, manager);
-        
+
         // Initialize membership prices
-        membershipPrices[MEMBERSHIP_TYPE.Monthly] = 50 * (10**decimal);       // 50 GYM tokens
-        membershipPrices[MEMBERSHIP_TYPE.Quarterly] = 140 * (10**decimal);    // 140 GYM tokens
-        membershipPrices[MEMBERSHIP_TYPE.Annual] = 500 * (10**decimal);       // 500 GYM tokens
+        membershipPrices[MEMBERSHIP_TYPE.Monthly] = 50 * (10 ** decimal); // 50 GYM tokens
+        membershipPrices[MEMBERSHIP_TYPE.Quarterly] = 140 * (10 ** decimal); // 140 GYM tokens
+        membershipPrices[MEMBERSHIP_TYPE.Annual] = 500 * (10 ** decimal); // 500 GYM tokens
 
         // Mint initial token supply to the manager
         _mint(manager, INITIAL_SUPPLY);
-
     }
 
     // Modifier to check if the caller is a manager
@@ -59,6 +61,12 @@ contract GymToken is ERC20, Pausable, AccessControl {
         _;
     }
 
+    // Modifier to validate non-zero address
+    modifier validAddress(address account) {
+        require(account != address(0), "Invalid address");
+        _;
+    }
+
     // Allows managers to pause all token-related activities
     function pause() public onlyRole(MANAGER_ROLE) {
         _pause();
@@ -69,16 +77,39 @@ contract GymToken is ERC20, Pausable, AccessControl {
         _unpause();
     }
 
+    // Role management functions
+    function addUserToRole(
+        address account,
+        bytes32 role
+    ) external onlyRole(MANAGER_ROLE) validAddress(account) {
+        grantRole(role, account);
+    }
+
+    function removeUserFromRole(
+        address account,
+        bytes32 role
+    ) external onlyRole(MANAGER_ROLE) validAddress(account) {
+        revokeRole(role, account);
+    }
+
     // Allows managers to transfer wages to staff
-    function payStaff(address staff, uint256 amount) public whenNotPaused onlyRole(MANAGER_ROLE) {
+    function payStaff(
+        address staff,
+        uint256 amount
+    ) public whenNotPaused onlyRole(MANAGER_ROLE) {
         require(balanceOf(msg.sender) >= amount, "Insufficient balance");
         _transfer(msg.sender, staff, amount);
     }
 
     // Referral bonus reward mechanism
-    function rewardReferral(address referrer) public whenNotPaused onlyRole(MANAGER_ROLE) {
+    function rewardReferral(
+        address referrer
+    ) public whenNotPaused onlyRole(MANAGER_ROLE) {
         // Ensure that the referrer has an active membership
-        require(block.timestamp < membershipExpiry[referrer], "Referrer membership expired");
+        require(
+            block.timestamp < membershipExpiry[referrer],
+            "Referrer membership expired"
+        );
 
         // Reward the referrer with the specified amount
         referralBonuses[referrer] += REFERRAL_REWARD;
@@ -88,7 +119,9 @@ contract GymToken is ERC20, Pausable, AccessControl {
     }
 
     // Members can purchase memberships by burning tokens
-    function purchaseMembership(MEMBERSHIP_TYPE membershipType) public whenNotPaused onlyMember {
+    function purchaseMembership(
+        MEMBERSHIP_TYPE membershipType
+    ) public whenNotPaused onlyMember {
         uint256 price = membershipPrices[membershipType];
         require(balanceOf(msg.sender) >= price, "Insufficient balance");
 
@@ -117,9 +150,10 @@ contract GymToken is ERC20, Pausable, AccessControl {
         emit MembershipPurchased(msg.sender, membershipType, duration);
     }
 
-
     // Check remaining membership time
-    function getRemainingMembershipTime(address member) public view returns (uint256) {
+    function getRemainingMembershipTime(
+        address member
+    ) public view returns (uint256) {
         if (block.timestamp >= membershipExpiry[member]) {
             return 0;
         } else {
