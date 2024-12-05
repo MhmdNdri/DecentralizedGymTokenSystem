@@ -29,6 +29,14 @@ contract GymToken is ERC20, Pausable, AccessControl {
         uint256 reward;
     }
 
+    struct TrainingSession {
+        uint256 id;
+        string name;
+        uint256 date;
+        uint256 cost;
+        address trainer;
+    }
+
     // Mapping of user registrations for challenges
     mapping(address => uint256) public userChallengeRegistrations;
     mapping(MEMBERSHIP_TYPE => uint256) public membershipPrices;
@@ -38,6 +46,11 @@ contract GymToken is ERC20, Pausable, AccessControl {
     // Challenges mapping by ID
     mapping(uint256 => Challenge) public challenges;
     uint256 public challengeCount;
+
+    // Mapping of training sessions
+    mapping(uint256 => TrainingSession) public trainingSessions;
+    mapping(uint256 => address[]) public sessionParticipants;
+    uint256 public sessionCount;
 
     event MembershipPurchased(
         address indexed member,
@@ -59,6 +72,17 @@ contract GymToken is ERC20, Pausable, AccessControl {
         address indexed member,
         uint256 indexed challengeId,
         uint256 reward
+    );
+    event TrainingSessionCreated(
+        uint256 indexed sessionId,
+        string name,
+        uint256 date,
+        uint256 cost,
+        address trainer
+    );
+    event TrainingSessionRegistered(
+        address indexed member,
+        uint256 indexed sessionId
     );
 
     constructor(address manager) ERC20("GymToken", "GYM") {
@@ -118,7 +142,7 @@ contract GymToken is ERC20, Pausable, AccessControl {
         uint256 amount
     ) public whenNotPaused onlyRole(MANAGER_ROLE) {
         require(balanceOf(msg.sender) >= amount, "Insufficient balance");
-        require(hasRole(STAFF_ROLE, staff), "This is not a staff address"); // staff address should have staff role
+        require(hasRole(STAFF_ROLE, staff), "his is not a staff address");
         _transfer(msg.sender, staff, amount);
     }
 
@@ -236,6 +260,51 @@ contract GymToken is ERC20, Pausable, AccessControl {
     ) external view returns (string memory, uint256) {
         Challenge storage challenge = challenges[challengeId];
         return (challenge.name, challenge.reward);
+    }
+    // Training session functions
+    // Create a new training session
+    function createTrainingSession(
+        string memory name,
+        uint256 date,
+        uint256 cost
+    ) external onlyRole(TRAINER_ROLE) {
+        require(date > block.timestamp, "Date must be in the future");
+        sessionCount++;
+        trainingSessions[sessionCount] = TrainingSession({
+            id: sessionCount,
+            name: name,
+            date: date,
+            cost: cost,
+            trainer: msg.sender
+        });
+        emit TrainingSessionCreated(sessionCount, name, date, cost, msg.sender);
+    }
+    //Register for a Training Session:
+    function registerForTrainingSession(uint256 sessionId) external onlyMember {
+        TrainingSession storage session = trainingSessions[sessionId];
+        require(session.id != 0, "Session does not exist");
+        require(balanceOf(msg.sender) >= session.cost, "Insufficient balance");
+        _burn(msg.sender, session.cost);
+        sessionParticipants[sessionId].push(msg.sender);
+        emit TrainingSessionRegistered(msg.sender, sessionId);
+    }
+    //get All training sessions
+    //this function is not neccessary and I think due to gas we can remove it
+    function getAllTrainingSessions()
+        external
+        view
+        returns (uint256[] memory, string[] memory)
+    {
+        uint256 totalSessions = sessionCount;
+        uint256[] memory ids = new uint256[](totalSessions);
+        string[] memory names = new string[](totalSessions);
+
+        for (uint256 i = 1; i <= totalSessions; i++) {
+            ids[i - 1] = trainingSessions[i].id;
+            names[i - 1] = trainingSessions[i].name;
+        }
+
+        return (ids, names);
     }
 }
 // addresses:
