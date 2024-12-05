@@ -118,7 +118,7 @@ contract GymToken is ERC20, Pausable, AccessControl {
         uint256 amount
     ) public whenNotPaused onlyRole(MANAGER_ROLE) {
         require(balanceOf(msg.sender) >= amount, "Insufficient balance");
-        require(hasRole(STAFF_ROLE, staff), "This is not a staff address");
+        require(hasRole(STAFF_ROLE, staff), "This is not a staff address"); // staff address should have staff role
         _transfer(msg.sender, staff, amount);
     }
 
